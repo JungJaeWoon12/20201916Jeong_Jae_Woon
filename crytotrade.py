@@ -1,7 +1,19 @@
-import urllib.request
 import json
 import time
 import os
+import sys
+
+# -----------------------------------------------------------
+# [라이브러리 감지 구간]
+# requests 라이브러리 유무를 확인하여 모드를 결정합니다.
+# -----------------------------------------------------------
+try:
+    import requests
+    HAS_REQUESTS = True
+except ImportError:
+    import urllib.request
+    HAS_REQUESTS = False
+# -----------------------------------------------------------
 
 class CryptoGame:
     def __init__(self):
@@ -20,7 +32,7 @@ class CryptoGame:
                     data = json.load(f)
                     self.balance = data["balance"]
                     self.coins = data["coins"]
-                    print(f"📂 저장된 게임 데이터를 불러왔습니다. (잔고: {self.balance:,.0f}원)")
+                    # 시작 시 로딩 메시지는 삭제하고 run()에서 통합 안내함
                     return
             except Exception:
                 pass
@@ -49,25 +61,42 @@ class CryptoGame:
             print("취소되었습니다.")
 
     def clear_screen(self):
-        """화면을 깨끗하게 지우는 함수"""
         os.system('cls' if os.name == 'nt' else 'clear')
 
     def get_price(self, coin_symbol):
+        """
+        [Hybrid Request System]
+        - HAS_REQUESTS == True: requests 라이브러리 사용 (안정적, 타임아웃 처리 용이)
+        - HAS_REQUESTS == False: urllib 표준 라이브러리 사용 (별도 설치 불필요)
+        """
         market = self.market_codes.get(coin_symbol)
         if not market: return None
+        
         url = f"https://api.upbit.com/v1/ticker?markets={market}"
+        
         try:
-            response = urllib.request.urlopen(url)
-            data = response.read().decode('utf-8')
-            return float(json.loads(data)[0]['trade_price'])
+            if HAS_REQUESTS:
+                # [외부 라이브러리 모드]
+                response = requests.get(url, timeout=3)
+                response.raise_for_status()
+                data = response.json()
+                return float(data[0]['trade_price'])
+            else:
+                # [내장 라이브러리 모드]
+                with urllib.request.urlopen(url, timeout=3) as response:
+                    data = response.read().decode('utf-8')
+                    return float(json.loads(data)[0]['trade_price'])
         except Exception:
             return None
 
     def print_menu(self):
-        print("\n" + "─"*60)
-        # 메뉴에 7번 청소 기능이 추가되었습니다.
-        print(f"💰 [잔고: {self.balance:,.0f} KRW] | 1.시세 2.자산 3.매수 4.매도 5.종료 6.초기화 7.청소")
-        print("─"*60)
+        mode_icon = "🚀" if HAS_REQUESTS else "🐢"
+        mode_text = "Turbo" if HAS_REQUESTS else "Basic"
+        
+        print("\n" + "─"*65)
+        print(f"💰 [잔고: {self.balance:,.0f} KRW] | {mode_icon} {mode_text} Mode")
+        print("1.시세 2.자산 3.매수 4.매도 5.종료 6.초기화 7.청소")
+        print("─"*65)
 
     def show_prices(self):
         print("\n[📢 실시간 시세]")
@@ -83,9 +112,10 @@ class CryptoGame:
         for symbol, amount in self.coins.items():
             if amount > 0:
                 price = self.get_price(symbol)
-                val = amount * price
-                total_asset += val
-                print(f"- {symbol}: {amount:.4f} 개 ({val:,.0f} 원)")
+                if price:
+                    val = amount * price
+                    total_asset += val
+                    print(f"- {symbol}: {amount:.4f} 개 ({val:,.0f} 원)")
         
         profit = ((total_asset - 10000000) / 10000000) * 100
         print(f"💵 현금: {self.balance:,.0f} 원")
@@ -98,6 +128,10 @@ class CryptoGame:
             print("🚫 코인명을 확인하세요.")
             return
         price = self.get_price(symbol)
+        if not price:
+            print("🚫 시세 조회 실패 (네트워크 확인 필요)")
+            return
+            
         try:
             amt = int(input(f"{symbol} 매수 금액(KRW) >> "))
             if amt > self.balance: print("🚫 잔액 부족")
@@ -117,6 +151,8 @@ class CryptoGame:
             print("🚫 보유 코인이 아닙니다.")
             return
         price = self.get_price(symbol)
+        if not price: return
+        
         try:
             pct = int(input("매도 비율(1~100%) >> "))
             if 1 <= pct <= 100:
@@ -130,8 +166,25 @@ class CryptoGame:
         except ValueError: print("🚫 숫자만 입력하세요.")
 
     def run(self):
-        self.clear_screen() # 처음 시작할 때는 깔끔하게
-        print("🚀 무설치 코인 투자 게임 (History Mode)")
+        self.clear_screen()
+        print("╔══════════════════════════════════════════════════════╗")
+        print("║          💰 가상 화폐 모의투자 시스템 v1.0           ║")
+        print("╚══════════════════════════════════════════════════════╝")
+        
+        # [시스템 점검 메시지 출력]
+        print("\n[System] 환경 점검 중...")
+        time.sleep(0.5)
+        
+        if HAS_REQUESTS:
+            print("✅ 'requests' 라이브러리 감지됨: [Turbo Mode] 활성화")
+            print("   -> 더 빠르고 안정적인 API 연결을 지원합니다.")
+        else:
+            print("⚠️ 'requests' 라이브러리가 없습니다: [Basic Mode]로 실행")
+            print("   -> 표준 라이브러리(urllib)를 사용하여 실행합니다.")
+            print("   -> 💡 Tip: 'pip install requests'를 설치하면 Turbo Mode가 켜집니다.")
+        
+        print(f"\n📂 데이터 로드 완료! (잔고: {self.balance:,.0f}원)")
+        time.sleep(1)
         
         while True:
             self.print_menu()
@@ -146,8 +199,8 @@ class CryptoGame:
                 break
             elif choice == "6": self.reset_game()
             elif choice == "7": 
-                self.clear_screen() # 7번을 누르면 화면을 싹 지웁니다.
-                print("✨ 화면이 깨끗해졌습니다.") 
+                self.clear_screen()
+                print("✨ 화면 청소 완료")
             else: print("🚫 잘못된 입력입니다.")
 
 if __name__ == "__main__":
