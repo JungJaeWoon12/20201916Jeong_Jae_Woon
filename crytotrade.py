@@ -3,23 +3,16 @@ import time
 import os
 import sys
 
-# -----------------------------------------------------------
-# [라이브러리 감지 구간]
-# requests가 있으면 '부스트 모드', 없으면 '베이직 모드'로 설정
-# -----------------------------------------------------------
 try:
     import requests
     HAS_REQUESTS = True
 except ImportError:
     import urllib.request
     HAS_REQUESTS = False
-# -----------------------------------------------------------
 
 class CryptoGame:
     def __init__(self):
         self.DATA_FILE = "game_data.json"
-        
-        # 거래 가능한 10가지 코인 (업비트 티커)
         self.market_codes = {
             "BTC": "KRW-BTC", "ETH": "KRW-ETH", "XRP": "KRW-XRP",
             "SOL": "KRW-SOL", "DOGE": "KRW-DOGE", "ADA": "KRW-ADA",
@@ -29,7 +22,6 @@ class CryptoGame:
         self.load_game()
 
     def load_game(self):
-        # 기본 초기화 (1억 원)
         self.balance = 100000000
         self.coins = {code: 0.0 for code in self.market_codes}
 
@@ -39,7 +31,6 @@ class CryptoGame:
                     data = json.load(f)
                     self.balance = data.get("balance", 100000000)
                     saved_coins = data.get("coins", {})
-                    # 저장된 코인 정보 합치기
                     for symbol, amount in saved_coins.items():
                         if symbol in self.coins:
                             self.coins[symbol] = amount
@@ -78,13 +69,11 @@ class CryptoGame:
         
         try:
             if HAS_REQUESTS:
-                # [부스트 모드] requests 사용
                 response = requests.get(url, timeout=3)
                 response.raise_for_status()
                 data = response.json()
                 return float(data[0]['trade_price'])
             else:
-                # [베이직 모드] urllib 사용
                 with urllib.request.urlopen(url, timeout=3) as response:
                     data = response.read().decode('utf-8')
                     return float(json.loads(data)[0]['trade_price'])
@@ -92,7 +81,6 @@ class CryptoGame:
             return None
 
     def print_menu(self):
-        # 메뉴 상단에도 현재 모드 표시
         mode_str = "🚀 BOOST" if HAS_REQUESTS else "🐢 BASIC"
         print("\n" + "─"*65)
         print(f"💰 [잔고: {self.balance:,.0f} KRW] | 모드: {mode_str}")
@@ -182,9 +170,6 @@ class CryptoGame:
         print("\n[시스템] 실행 환경을 점검하고 있습니다...")
         time.sleep(1)
         
-        # -------------------------------------------------------
-        # 요청하신 '모드 안내 메시지' 출력 부분
-        # -------------------------------------------------------
         if HAS_REQUESTS:
             print("\n🚀 [시스템] 부스트 모드(Boost Mode)가 작동 중입니다!")
             print("   - 외부 라이브러리(requests)가 감지되었습니다.")
@@ -197,7 +182,6 @@ class CryptoGame:
             print("   터미널에 'pip install requests'를 입력해 라이브러리를 설치하세요.")
             print("   설치 후 다시 실행하면 자동으로 '부스트 모드'가 켜집니다!")
             print("   ----------------------------------------------------------")
-        # -------------------------------------------------------
         
         print(f"\n📂 데이터 로드 완료. (현재 잔고: {self.balance:,.0f} 원)")
         time.sleep(1)
